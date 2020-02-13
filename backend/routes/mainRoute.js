@@ -27,8 +27,8 @@ router.get('/', (req, res) => {
         ping.stop()
         clearTimeout(timeout)
         result = { msg:'reachable', host, time:data.time }
-        res.json(data)
-        console.log('reachable')
+        res.json(result)
+        console.log('reachable - ' + result.time + 'ms')
     })
     ping.on('fail', function(data){
         ping.stop()
