@@ -6,8 +6,9 @@
                 justify="center">
                 <v-col
                     class="text-center font-weight-black big-text"
+                    :class="latencyColor"
                     lg="12">
-                    {{latency}}
+                    {{stats.latency}}
                 </v-col>
             </v-row>
         </v-container>
@@ -15,7 +16,7 @@
             fluid>
             <v-row>
                 <v-col 
-                    lg="4">
+                    lg="6">
                     <v-text-field
                         class="centered-input"
                         label="IP-address"
@@ -24,7 +25,7 @@
                     ></v-text-field>
                 </v-col>
                 <v-col 
-                    lg="4">
+                    lg="6">
                     <v-text-field
                         class="centered-input"
                         label="Interval delay"
@@ -32,33 +33,25 @@
                         regular
                     ></v-text-field>
                 </v-col>
-                <v-col 
-                    lg="4">
-                    <v-text-field
-                        class="centered-input"
-                        label="IP-address"
-                        v-model="ip"
-                        regular
-                    ></v-text-field>
+            </v-row>
+
+            <v-row>
+                <v-col lg="4">
+                    <stats :stats="stats"></stats>
                 </v-col>
-            </v-row>
-
-            <v-row>
-                <chart />
-            </v-row>
-                <stats />
-                <dataTable :stats="stats"/>
-            <v-row>
-
+                <v-col lg="8">
+                    <chart :data500="data500"></chart>
+                </v-col>
             </v-row>
         </v-container>
     </v-app>
 </template>
 
 <script>
-import chart from './components/Chart';
-import stats from './components/Stats';
-import dataTable from './components/DataTable';
+import chart from './components/Chart'
+import stats from './components/Stats'
+
+import avgMixin from './mixins/avgMixin'
 
 export default {
     name: 'App',
@@ -66,20 +59,23 @@ export default {
     components: {
         chart,
         stats,
-        dataTable
     },
 
     data: () => ({
         ip: '1.1.1.1',
-        latency: 0,
         runningPing: true,
         intervalDelay: 1000,
 
-        data: [],
+        latencyColor: 'white--text',
+
+        data500: [],
         stats: {
+            name: "Stats",
+            latency: 0,
             max: 0,
             min: 0,
             count: 0,
+            failed: 0,
             sum: 0,  //to calculate avg
         }
     }),
@@ -89,23 +85,55 @@ export default {
     methods: {
         getLatency() {
             clearInterval(this.interval)
-            fetch('http://localhost:9000')
+            fetch('http://localhost:9000/?host=' + this.ip)
             .then(response => response.json())
             .then(data => {
-                this.latency = Number(data.time)
-                if(this.stats.count == 0) {
-                    this.stats.max = this.latency
-                    if(this.stats.min > -1) {
-                        this.stats.min = this.latency
+                this.stats.latency = Number(data.time)
+
+                //Change text color (class) depending on the latency
+                if(this.stats.latency >= 250 || this.stats.latency == -1) {
+                    this.latencyColor = 'red--text'
+                } else if(this.stats.latency >= 150) {
+                    this.latencyColor = 'red--text text--lighten-1'
+                } else if(this.stats.latency >= 100) {
+                    this.latencyColor = 'red--text text--lighten-2'
+                } else if(this.stats.latency >= 75) {
+                    this.latencyColor = 'red--text text--lighten-3'
+                } else if(this.stats.latency >= 60) {
+                    this.latencyColor = 'red--text text--lighten-4'
+                } else if(this.stats.latency >= 45) {
+                    this.latencyColor = 'red--text text--lighten-5'
+                } else {
+                    this.latencyColor = 'white--text'
+                }
+
+                //Change max, mins, failed, sum
+                if(this.stats.latency != -1) { //If ping was ok
+                    if(this.stats.count == 0) {
+                        this.stats.max = this.stats.latency
+                        if(this.stats.min > -1) {
+                            this.stats.min = this.stats.latency
+                        }
                     }
+                    if(this.stats.max < this.stats.latency) {
+                        this.stats.max = this.stats.latency
+                    }
+                    if(this.stats.min > -1 && this.stats.min > this.stats.latency) {
+                        this.stats.min = this.stats.latency
+                    }
+                    //Sum
+                    this.stats.sum += this.stats.latency
+                } else { //If ping failed
+                    this.stats.latency = "Failed"
+                    ++this.stats.failed
+                    
+                    this.stats.sum += 3000
                 }
-                if(this.stats.max < this.latency) {
-                    this.stats.max = this.latency
-                }
-                if(this.stats.min > -1 && this.stats.min > this.latency) {
-                    this.stats.min = this.latency
-                }
-                this.stats.sum += this.latency
+
+                //Add to queue
+                this.addToQueue500(this.stats.latency)
+
+                //Count
                 ++this.stats.count
             })
             .catch(err => {
@@ -114,13 +142,18 @@ export default {
             .finally(() => {
                 this.interval = setInterval(() => this.getLatency(), this.intervalDelay);
             })
+        },
+        addToQueue500(x) {
+            if(this.data500.length >= 100) {
+                this.data500.shift()
+            }
+            this.data500.push(x)
         }
     },
     computed: {
-        avg: function() {
-            return this.stats.count != 0 ? (this.stats.sum / this.stats.count).toFixed(2) : 0
-        }
-    }
+        
+    },
+    mixins: [avgMixin],
 };
 </script>
 
