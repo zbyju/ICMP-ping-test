@@ -20,7 +20,7 @@ router.get('/', (req, res) => {
         ping.stop()
         result = { msg:'timeout', time:-1 }
         res.json(result)
-        console.log('timeout')
+        //console.log('timeout')
     }, 3000);
 
     ping.on('ping', function(data){
@@ -28,14 +28,14 @@ router.get('/', (req, res) => {
         clearTimeout(timeout)
         result = { msg:'reachable', host, time:data.time }
         res.json(result)
-        console.log('reachable - ' + result.time + 'ms')
+        //console.log('reachable - ' + result.time + 'ms')
     })
     ping.on('fail', function(data){
         ping.stop()
         clearTimeout(timeout)
         result = { msg:'unreachable', host, time:data.time }
         res.json(result)
-        console.log('unreachable')
+        //console.log('unreachable')
     })
 })
 

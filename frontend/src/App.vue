@@ -1,32 +1,57 @@
 <template>
     <v-app>
-        <h1 
-            class="display-2"
-            >Ping: {{latency}}ms</h1>
-        <h2 
-            class="display-3"
-            >Max: {{max}}ms</h2>
-        <h2 
-            class="display-3"
-            >Min: {{min}}ms</h2>
-        <h2 
-            class="display-3"
-            >Count: {{count}}</h2>
-        <h2 
-            class="display-3"
-            >Sum: {{sum}}ms</h2>
-        <h2 
-            class="display-3"
-            >Avg: {{avg}}ms</h2>
-        <v-text-field
-            class="centered-input"
-            label="IP-address"
-            v-model="ip"
-            solo
-          ></v-text-field>
-          <chart />
-          <stats />
-          <dataTable />
+        <v-container
+            class="pa-0 my-0 margin-negative">
+            <v-row
+                justify="center">
+                <v-col
+                    class="text-center font-weight-black big-text"
+                    lg="12">
+                    {{latency}}
+                </v-col>
+            </v-row>
+        </v-container>
+        <v-container
+            fluid>
+            <v-row>
+                <v-col 
+                    lg="4">
+                    <v-text-field
+                        class="centered-input"
+                        label="IP-address"
+                        v-model="ip"
+                        regular
+                    ></v-text-field>
+                </v-col>
+                <v-col 
+                    lg="4">
+                    <v-text-field
+                        class="centered-input"
+                        label="Interval delay"
+                        v-model="intervalDelay"
+                        regular
+                    ></v-text-field>
+                </v-col>
+                <v-col 
+                    lg="4">
+                    <v-text-field
+                        class="centered-input"
+                        label="IP-address"
+                        v-model="ip"
+                        regular
+                    ></v-text-field>
+                </v-col>
+            </v-row>
+
+            <v-row>
+                <chart />
+            </v-row>
+                <stats />
+                <dataTable :stats="stats"/>
+            <v-row>
+
+            </v-row>
+        </v-container>
     </v-app>
 </template>
 
@@ -48,43 +73,52 @@ export default {
         ip: '1.1.1.1',
         latency: 0,
         runningPing: true,
+        intervalDelay: 1000,
+
         data: [],
-        max: 0,
-        min: 0,
-        count: 0,
-        sum: 0,  //to calculate avg
+        stats: {
+            max: 0,
+            min: 0,
+            count: 0,
+            sum: 0,  //to calculate avg
+        }
     }),
     created() {
-        this.interval = setInterval(() => this.getLatency(), 5000);
+        this.interval = setInterval(() => this.getLatency(), this.intervalDelay);
     },
     methods: {
         getLatency() {
             clearInterval(this.interval)
-            console.log("get ping")
             fetch('http://localhost:9000')
             .then(response => response.json())
             .then(data => {
                 this.latency = Number(data.time)
-                if(this.count == 0) {
-                    this.max = this.latency
-                    this.min = this.latency
+                if(this.stats.count == 0) {
+                    this.stats.max = this.latency
+                    if(this.stats.min > -1) {
+                        this.stats.min = this.latency
+                    }
                 }
-                if(this.max < this.latency) {
-                    this.max = this.latency
+                if(this.stats.max < this.latency) {
+                    this.stats.max = this.latency
                 }
-                if(this.min > this.latency) {
-                    this.min = this.latency
+                if(this.stats.min > -1 && this.stats.min > this.latency) {
+                    this.stats.min = this.latency
                 }
-                this.sum += this.latency
-                ++this.count
-
-                this.interval = setInterval(() => this.getLatency(), 5000);
+                this.stats.sum += this.latency
+                ++this.stats.count
+            })
+            .catch(err => {
+                console.log(err)
+            })
+            .finally(() => {
+                this.interval = setInterval(() => this.getLatency(), this.intervalDelay);
             })
         }
     },
     computed: {
         avg: function() {
-            return this.count != 0 ? (this.sum / this.count).toFixed(2) : 0
+            return this.stats.count != 0 ? (this.stats.sum / this.stats.count).toFixed(2) : 0
         }
     }
 };
@@ -92,6 +126,17 @@ export default {
 
 <style lang="scss">
     .centered-input input {
-    text-align: center
+        text-align: center
+    }
+    div.container {
+        div.big-text {
+            font-size: 24rem !important;
+        }
+    }
+    div.v-application--wrap {
+        div.container.margin-negative {
+            margin-top: -90px !important;
+            margin-bottom: -100px !important;
+        }
     }
 </style>
